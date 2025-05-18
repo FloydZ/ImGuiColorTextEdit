@@ -40,3 +40,5 @@ cmake-build-debug/
 cmake-build-release/
 
 shell.nix
+.cache/
+.idea/
