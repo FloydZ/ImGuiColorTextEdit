@@ -252,8 +252,7 @@ private:
 	typedef std::unordered_map<std::string, Identifier> Identifiers;
 	typedef std::array<ImU32, (unsigned)PaletteIndex::Max> Palette;
 
-	struct Glyph
-	{
+	struct Glyph {
 		char mChar;
 		PaletteIndex mColorIndex = PaletteIndex::Default;
 		bool mComment : 1;

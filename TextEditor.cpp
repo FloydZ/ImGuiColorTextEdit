@@ -1774,6 +1774,10 @@ int TextEditor::GetLineMaxColumn(int aLine, int aLimit) const
 {
 	if (aLine >= mLines.size())
 		return 0;
+
+	// TODO not really fully correct as the start must not be the first line
+	const int offset = GetAdditionalLinesCount(0, aLine);
+	aLine -= offset;
 	int c = 0;
 	if (aLimit == -1)
 	{
@@ -2247,12 +2251,13 @@ void TextEditor::Render(bool aParentIsFocused)
 	{
 		auto drawList = ImGui::GetWindowDrawList();
 		float spaceSize = ImGui::GetFont()->CalcTextSizeA(ImGui::GetFontSize(), FLT_MAX, -1.0f, " ", nullptr, nullptr).x;
+		const int total_additional_lines = GetAdditionalLinesCount(mFirstVisibleLine, std::min(mLastVisibleLine, (int)mLines.size()));
 
 		int plottet_assembly_lines = 0;
-		for (int lineNo = mFirstVisibleLine; lineNo <= mLastVisibleLine && lineNo < mLines.size(); lineNo++) {
-			const int inner_lineNo = lineNo + plottet_assembly_lines;
-
-			ImVec2 lineStartScreenPos = ImVec2(cursorScreenPos.x, cursorScreenPos.y + lineNo * mCharAdvance.y);
+		bool had_last_line_assembly = false;
+		int line_ctr = 0;
+		for (int lineNo = mFirstVisibleLine; lineNo <= mLastVisibleLine && lineNo < mLines.size(); lineNo++, line_ctr++) {
+			ImVec2 lineStartScreenPos = ImVec2(cursorScreenPos.x, cursorScreenPos.y + line_ctr * mCharAdvance.y);
 			ImVec2 textScreenPos = ImVec2(lineStartScreenPos.x + mTextStart, lineStartScreenPos.y);
 
 			auto& line = mLines[lineNo];
@@ -2276,16 +2281,17 @@ void TextEditor::Render(bool aParentIsFocused)
 				if (cursorSelectionEnd.mLine > lineNo || cursorSelectionEnd.mLine == lineNo && cursorSelectionEnd > lineEndCoord)
 					rectEnd += mCharAdvance.x;
 
-				if (rectStart != -1 && rectEnd != -1 && rectStart < rectEnd)
+				if (rectStart != -1 && rectEnd != -1 && rectStart < rectEnd) {
+					ImVec2 tt = ImVec2(cursorScreenPos.x, cursorScreenPos.y + lineNo * mCharAdvance.y);
 					drawList->AddRectFilled(
-						ImVec2{ lineStartScreenPos.x + mTextStart + rectStart, lineStartScreenPos.y },
-						ImVec2{ lineStartScreenPos.x + mTextStart + rectEnd, lineStartScreenPos.y + mCharAdvance.y },
+						ImVec2{ tt.x + mTextStart + rectStart, tt.y },
+						ImVec2{ tt.x + mTextStart + rectEnd, tt.y + mCharAdvance.y },
 						mPalette[(int)PaletteIndex::Selection]);
+				}
 			}
 
 			// Draw line number (right aligned)
-			if (mShowLineNumbers)
-			{
+			if (mShowLineNumbers && !had_last_line_assembly) {
 				snprintf(lineNumberBuffer, 16, "%d  ", lineNo + 1);
 				float lineNoWidth = ImGui::GetFont()->CalcTextSizeA(ImGui::GetFontSize(), FLT_MAX, -1.0f, lineNumberBuffer, nullptr, nullptr).x;
 				drawList->AddText(ImVec2(lineStartScreenPos.x + mTextStart - lineNoWidth, lineStartScreenPos.y), mPalette[(int)PaletteIndex::LineNumber], lineNumberBuffer);
@@ -2293,11 +2299,12 @@ void TextEditor::Render(bool aParentIsFocused)
 
 			std::vector<Coordinates> cursorCoordsInThisLine;
 			for (int c = 0; c <= mState.mCurrentCursor; c++) {
-				if (mState.mCursors[c].mInteractiveEnd.mLine == lineNo)
-					cursorCoordsInThisLine.push_back(mState.mCursors[c].mInteractiveEnd);
+				if (mState.mCursors[c].mInteractiveEnd.mLine == line_ctr) {
+					cursorCoordsInThisLine.push_back(mState.mCursors[c].mInteractiveEnd - Coordinates(plottet_assembly_lines, 0));
+				}
 			}
-			if (cursorCoordsInThisLine.size() > 0)
-			{
+
+			if (!cursorCoordsInThisLine.empty()) {
 				bool focused = ImGui::IsWindowFocused() || aParentIsFocused;
 
 				// Render the cursors
@@ -2309,16 +2316,32 @@ void TextEditor::Render(bool aParentIsFocused)
 
 						ImVec2 cstart(textScreenPos.x + cx, lineStartScreenPos.y);
 						ImVec2 cend(textScreenPos.x + cx + width, lineStartScreenPos.y + mCharAdvance.y);
-						drawList->AddRectFilled(cstart, cend, mPalette[(int)PaletteIndex::Cursor]);
-						if (mCursorOnBracket)
-						{
+						drawList->AddRectFilled(cstart, cend, mPalette[static_cast<int>(PaletteIndex::Cursor)]);
+						if (mCursorOnBracket) {
 							ImVec2 topLeft = { cstart.x, lineStartScreenPos.y + fontHeight + 1.0f };
 							ImVec2 bottomRight = { topLeft.x + mCharAdvance.x, topLeft.y + 1.0f };
-							drawList->AddRectFilled(topLeft, bottomRight, mPalette[(int)PaletteIndex::Cursor]);
+							drawList->AddRectFilled(topLeft, bottomRight, mPalette[static_cast<int>(PaletteIndex::Cursor)]);
 						}
 					}
 				}
 			}
+
+			if (showAssembly && had_last_line_assembly) {
+			    //ImVec2 _cursorScreenPos = ImGui::GetCursorScreenPos();
+			    //mLineOverlayCallback(lineNo, _cursorScreenPos);
+
+				auto prevColor = line.empty() ? mPalette[static_cast<int>(PaletteIndex::Default)] : GetGlyphColor(line[0]);
+				const auto asmLines = "kek\n";
+				ImVec2 pos = ImVec2(lineStartScreenPos.x + mTextStart + 40.0f, lineStartScreenPos.y);
+				drawList->AddText(pos, prevColor, asmLines);
+
+				// ImGui::Dummy(ImVec2((longest + 2),  mCharAdvance.y));
+				plottet_assembly_lines += 1;
+				had_last_line_assembly = false;
+				lineNo -= 1;
+				continue;
+			}
+
 
 			// Render colorized text
 			static std::string glyphBuffer;
@@ -2360,7 +2383,7 @@ void TextEditor::Render(bool aParentIsFocused)
 						const auto s = ImGui::GetFontSize();
 						const auto x = targetGlyphPos.x + spaceSize * 0.5f;
 						const auto y = targetGlyphPos.y + s * 0.5f;
-						drawList->AddCircleFilled(ImVec2(x, y), 1.5f, mPalette[(int)PaletteIndex::ControlCharacter], 4);
+						drawList->AddCircleFilled(ImVec2(x, y), 1.5f, mPalette[static_cast<int>(PaletteIndex::ControlCharacter)], 4);
 					}
 				} else {
 					// draw normal text
@@ -2369,7 +2392,7 @@ void TextEditor::Render(bool aParentIsFocused)
 					{
 						ImVec2 topLeft = { targetGlyphPos.x, targetGlyphPos.y + fontHeight + 1.0f };
 						ImVec2 bottomRight = { topLeft.x + mCharAdvance.x, topLeft.y + 1.0f };
-						drawList->AddRectFilled(topLeft, bottomRight, mPalette[(int)PaletteIndex::Cursor]);
+						drawList->AddRectFilled(topLeft, bottomRight, mPalette[static_cast<int>(PaletteIndex::Cursor)]);
 					}
 					glyphBuffer.clear();
 					for (int i = 0; i < seqLength; i++)
@@ -2380,16 +2403,7 @@ void TextEditor::Render(bool aParentIsFocused)
 				MoveCharIndexAndColumn(lineNo, charIndex, column);
 			}
 
-			if (showAssembly && !GetAdditionalLines(lineNo).empty()) {
-			    //ImVec2 _cursorScreenPos = ImGui::GetCursorScreenPos();
-			    //mLineOverlayCallback(lineNo, _cursorScreenPos);
-				const auto asmLines = "kek\n";
-				ImVec2 pos = ImVec2(textScreenPos.x + bufferOffset.x + 40.0f, textScreenPos.y + bufferOffset.y + mCharAdvance.y);
-				drawList->AddText(pos, prevColor, asmLines);
-
-				ImGui::Dummy(ImVec2((longest + 2),  mCharAdvance.y));
-				plottet_assembly_lines += 1;
-			}
+			had_last_line_assembly = !GetAdditionalLines(lineNo).empty();
 		}
 	}
 	mCurrentSpaceHeight = (mLines.size() + Min(mVisibleLineCount - 1, (int)mLines.size())) * mCharAdvance.y;

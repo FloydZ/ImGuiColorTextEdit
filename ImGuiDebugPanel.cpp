@@ -9,8 +9,7 @@ void TextEditor::ImGuiDebugPanel(const std::string& panelName)
 		ImGui::Checkbox("Panning", &mPanning);
 		ImGui::Checkbox("Dragging selection", &mDraggingSelection);
 		ImGui::DragInt("Cursor count", &mState.mCurrentCursor);
-		for (int i = 0; i <= mState.mCurrentCursor; i++)
-		{
+		for (int i = 0; i <= mState.mCurrentCursor; i++) {
 			static Coordinates sanitizedStart, sanitizedEnd;
 			sanitizedStart = SanitizeCoordinates(mState.mCursors[i].mInteractiveStart);
 			sanitizedEnd = SanitizeCoordinates(mState.mCursors[i].mInteractiveStart);
@@ -19,11 +18,13 @@ void TextEditor::ImGuiDebugPanel(const std::string& panelName)
 			ImGui::Text("Sanitized start: %d, %d", sanitizedStart.mLine, sanitizedStart.mColumn);
 			ImGui::Text("Sanitized end:   %d, %d", sanitizedEnd.mLine, sanitizedEnd.mColumn);
 		}
+
+		ImGui::Text("Content Dimension:   %d, %d", mContentHeight, mContentWidth);
+		ImGui::Text("Visible Line Dimension:     %d, %d, %d", mVisibleLineCount, mFirstVisibleLine, mLastVisibleLine);
+		ImGui::Text("Visible Column Dimension:   %d, %d, %d", mVisibleColumnCount, mFirstVisibleColumn, mLastVisibleColumn);
 	}
-	if (ImGui::CollapsingHeader("Lines"))
-	{
-		for (int i = 0; i < mLines.size(); i++)
-		{
+	if (ImGui::CollapsingHeader("Lines (Size)")) {
+		for (int i = 0; i < mLines.size(); i++) {
 			ImGui::Text("%zu", mLines[i].size());
 		}
 	}

@@ -70,15 +70,7 @@ int main() {
     return result;
 })";
 
-    static bool showDisasm = true;
-    {
-        ImGui::Begin("Hello, world!");
-        int mLine, mColumn;
-        editor.GetCursorPosition(mLine, mColumn);
-        ImGui::Text("%6d/%-6d lines ", mLine, mColumn);
-        ImGui::End();
-    }
-
+    editor.ImGuiDebugPanel("debug");
     ImGui::Begin("C Code Editor with Inline Assembly");
     editor.Render("##CCodeEditor", false, ImVec2(600, 300));  // adjust size as needed
 
