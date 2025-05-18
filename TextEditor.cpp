@@ -2248,8 +2248,10 @@ void TextEditor::Render(bool aParentIsFocused)
 		auto drawList = ImGui::GetWindowDrawList();
 		float spaceSize = ImGui::GetFont()->CalcTextSizeA(ImGui::GetFontSize(), FLT_MAX, -1.0f, " ", nullptr, nullptr).x;
 
-		for (int lineNo = mFirstVisibleLine; lineNo <= mLastVisibleLine && lineNo < mLines.size(); lineNo++)
-		{
+		int plottet_assembly_lines = 0;
+		for (int lineNo = mFirstVisibleLine; lineNo <= mLastVisibleLine && lineNo < mLines.size(); lineNo++) {
+			const int inner_lineNo = lineNo + plottet_assembly_lines;
+
 			ImVec2 lineStartScreenPos = ImVec2(cursorScreenPos.x, cursorScreenPos.y + lineNo * mCharAdvance.y);
 			ImVec2 textScreenPos = ImVec2(lineStartScreenPos.x + mTextStart, lineStartScreenPos.y);
 
@@ -2260,8 +2262,7 @@ void TextEditor::Render(bool aParentIsFocused)
 			Coordinates lineEndCoord(lineNo, maxColumnLimited);
 
 			// Draw selection for the current line
-			for (int c = 0; c <= mState.mCurrentCursor; c++)
-			{
+			for (int c = 0; c <= mState.mCurrentCursor; c++) {
 				float rectStart = -1.0f;
 				float rectEnd = -1.0f;
 				Coordinates cursorSelectionStart = mState.mCursors[c].GetSelectionStart();
@@ -2291,8 +2292,7 @@ void TextEditor::Render(bool aParentIsFocused)
 			}
 
 			std::vector<Coordinates> cursorCoordsInThisLine;
-			for (int c = 0; c <= mState.mCurrentCursor; c++)
-			{
+			for (int c = 0; c <= mState.mCurrentCursor; c++) {
 				if (mState.mCursors[c].mInteractiveEnd.mLine == lineNo)
 					cursorCoordsInThisLine.push_back(mState.mCursors[c].mInteractiveEnd);
 			}
@@ -2301,10 +2301,8 @@ void TextEditor::Render(bool aParentIsFocused)
 				bool focused = ImGui::IsWindowFocused() || aParentIsFocused;
 
 				// Render the cursors
-				if (focused)
-				{
-					for (const auto& cursorCoords : cursorCoordsInThisLine)
-					{
+				if (focused) {
+					for (const auto& cursorCoords : cursorCoordsInThisLine) {
 						float width = 1.0f;
 						auto cindex = GetCharacterIndexR(cursorCoords);
 						float cx = TextDistanceToLineStart(cursorCoords);
@@ -2326,32 +2324,26 @@ void TextEditor::Render(bool aParentIsFocused)
 			static std::string glyphBuffer;
 			int charIndex = GetFirstVisibleCharacterIndex(lineNo);
 			int column = mFirstVisibleColumn; // can be in the middle of tab character
-			while (charIndex < mLines[lineNo].size() && column <= mLastVisibleColumn)
-			{
+			while (charIndex < mLines[lineNo].size() && column <= mLastVisibleColumn) {
 				auto& glyph = line[charIndex];
 				auto color = GetGlyphColor(glyph);
 				ImVec2 targetGlyphPos = { lineStartScreenPos.x + mTextStart + TextDistanceToLineStart({lineNo, column}, false), lineStartScreenPos.y };
 
-				if (glyph.mChar == '\t')
-				{
-					if (mShowWhitespaces)
-					{
+				if (glyph.mChar == '\t') {
+					if (mShowWhitespaces) {
 						ImVec2 p1, p2, p3, p4;
 
 						const auto s = ImGui::GetFontSize();
 						const auto x1 = targetGlyphPos.x + mCharAdvance.x * 0.3f;
 						const auto y = targetGlyphPos.y + fontHeight * 0.5f;
 
-						if (mShortTabs)
-						{
+						if (mShortTabs) {
 							const auto x2 = targetGlyphPos.x + mCharAdvance.x;
 							p1 = ImVec2(x1, y);
 							p2 = ImVec2(x2, y);
 							p3 = ImVec2(x2 - s * 0.16f, y - s * 0.16f);
 							p4 = ImVec2(x2 - s * 0.16f, y + s * 0.16f);
-						}
-						else
-						{
+						} else {
 							const auto x2 = targetGlyphPos.x + TabSizeAtColumn(column) * mCharAdvance.x - mCharAdvance.x * 0.3f;
 							p1 = ImVec2(x1, y);
 							p2 = ImVec2(x2, y);
@@ -2363,19 +2355,15 @@ void TextEditor::Render(bool aParentIsFocused)
 						drawList->AddLine(p2, p3, mPalette[(int)PaletteIndex::ControlCharacter]);
 						drawList->AddLine(p2, p4, mPalette[(int)PaletteIndex::ControlCharacter]);
 					}
-				}
-				else if (glyph.mChar == ' ')
-				{
-					if (mShowWhitespaces)
-					{
+				} else if (glyph.mChar == ' ') {
+					if (mShowWhitespaces) {
 						const auto s = ImGui::GetFontSize();
 						const auto x = targetGlyphPos.x + spaceSize * 0.5f;
 						const auto y = targetGlyphPos.y + s * 0.5f;
 						drawList->AddCircleFilled(ImVec2(x, y), 1.5f, mPalette[(int)PaletteIndex::ControlCharacter], 4);
 					}
-				}
-				else
-				{
+				} else {
+					// draw normal text
 					int seqLength = UTF8CharLength(glyph.mChar);
 					if (mCursorOnBracket && seqLength == 1 && mMatchingBracketCoords == Coordinates{ lineNo, column })
 					{
@@ -2390,6 +2378,17 @@ void TextEditor::Render(bool aParentIsFocused)
 				}
 
 				MoveCharIndexAndColumn(lineNo, charIndex, column);
+			}
+
+			if (showAssembly && !GetAdditionalLines(lineNo).empty()) {
+			    //ImVec2 _cursorScreenPos = ImGui::GetCursorScreenPos();
+			    //mLineOverlayCallback(lineNo, _cursorScreenPos);
+				const auto asmLines = "kek\n";
+				ImVec2 pos = ImVec2(textScreenPos.x + bufferOffset.x + 40.0f, textScreenPos.y + bufferOffset.y + mCharAdvance.y);
+				drawList->AddText(pos, prevColor, asmLines);
+
+				ImGui::Dummy(ImVec2((longest + 2),  mCharAdvance.y));
+				plottet_assembly_lines += 1;
 			}
 		}
 	}
@@ -2953,3 +2952,24 @@ const std::unordered_map<char, char> TextEditor::CLOSE_TO_OPEN_CHAR = {
 };
 
 TextEditor::PaletteId TextEditor::defaultPalette = TextEditor::PaletteId::Dark;
+
+
+
+std::vector<std::string> TextEditor::GetAdditionalLines(int lineNumber) const {
+	// Dummy data – replace with your actual disassembly logic
+	if (lineNumber % 5 == 0)
+		return { "mov eax, 1"};
+	//if (lineNumber % 4 == 0)
+	//	return { "cmp eax, ebx"};
+	return {};
+}
+
+
+int TextEditor::GetAdditionalLinesCount(const int startLineNumber,
+								   const int endLineNumber) const {
+	int c = 0;
+	for (uint32_t i = startLineNumber; i < endLineNumber; i++) {
+		c += !GetAdditionalLines(i).empty();
+	}
+	return c;
+}

@@ -34,3 +34,9 @@ TextEditor.cpp.bak
 *.bak
 Save/TextEditor.h
 Save/TextEditor.cpp
+
+build/
+cmake-build-debug/
+cmake-build-release/
+
+shell.nix

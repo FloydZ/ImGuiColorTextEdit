@@ -465,6 +465,10 @@ private:
 	static const std::unordered_map<char, char> CLOSE_TO_OPEN_CHAR;
 	static PaletteId defaultPalette;
 
+
+	std::vector<std::string> GetAdditionalLines(int lineNumber) const;
+	int GetAdditionalLinesCount(int startLineNumber, int  endLineNumber) const;
+	bool showAssembly = true;
 private:
     struct RegexList;
     std::shared_ptr<RegexList> mRegexList;
